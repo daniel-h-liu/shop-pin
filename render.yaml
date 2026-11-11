@@ -1,0 +1,30 @@
+# Render Blueprint: one free web service running `next start`.
+# In Render: New → Blueprint → pick this repo. Values marked `sync: false`
+# are prompted for once and stored in Render (never in git).
+services:
+  - type: web
+    name: shop-pin
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Required
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false
+      # Bot check (Cloudflare Turnstile). The site key is read at build time.
+      - key: NEXT_PUBLIC_TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      # Optional
+      - key: EBAY_APP_ID
+        sync: false
+      - key: EBAY_CERT_ID
+        sync: false
