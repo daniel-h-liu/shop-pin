@@ -73,6 +73,7 @@ export default function BotCheck({
         widget.current = ts.render(box.current, {
           sitekey: SITE_KEY,
           appearance: "interaction-only",
+          action: "shop_board", // checked on the server (lib/turnstile.ts)
           theme: "light",
           callback: (token: string) => {
             setState("ok");

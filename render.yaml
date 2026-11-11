@@ -19,9 +19,14 @@ services:
       - key: SERPAPI_KEY
         sync: false
       # Bot check (Cloudflare Turnstile). The site key is read at build time.
+      # The site key is public (it's embedded in the page), so it lives here.
       - key: NEXT_PUBLIC_TURNSTILE_SITE_KEY
-        sync: false
+        value: 0x4AAAAAAF9VYybfcf7I6iNh
       - key: TURNSTILE_SECRET_KEY
+        sync: false
+      # Comma-separated hostnames tokens may come from, e.g. shop-pin.onrender.com
+      # (never localhost in production). Leave empty to skip the hostname check.
+      - key: TURNSTILE_HOSTNAMES
         sync: false
       # Optional
       - key: EBAY_APP_ID

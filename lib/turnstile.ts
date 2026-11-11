@@ -4,7 +4,14 @@
  * The browser widget produces a one-time token; the server confirms it with
  * Cloudflare before starting a board. When TURNSTILE_SECRET_KEY isn't set
  * (local development) the check is skipped.
+ *
+ * Besides `success`, the server checks that the token was issued for this
+ * form (`action`) and, when TURNSTILE_HOSTNAMES is set, on one of our own
+ * hostnames — so a token minted on another site can't be replayed here.
  */
+
+/** Must match the `action` the widget renders with (app/(ui)/components/BotCheck.tsx). */
+export const TURNSTILE_ACTION = "shop_board";
 
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
@@ -12,6 +19,13 @@ export type TurnstileResult = { ok: true; skipped?: boolean } | { ok: false; mes
 
 export function isTurnstileEnabled(): boolean {
   return !!process.env.TURNSTILE_SECRET_KEY;
+}
+
+function allowedHostnames(): string[] {
+  return (process.env.TURNSTILE_HOSTNAMES ?? "")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export async function verifyTurnstile(
@@ -29,10 +43,25 @@ export async function verifyTurnstile(
     const res = await fetchImpl(VERIFY_URL, {
       method: "POST",
       body: form,
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10_000),
     });
-    const data = (await res.json()) as { success?: boolean; "error-codes"?: string[] };
-    if (data.success) return { ok: true };
+    if (!res.ok) return { ok: false, message: "The bot check service had a problem. Please try again in a moment." };
+    const data = (await res.json()) as {
+      success?: boolean;
+      action?: string;
+      hostname?: string;
+      "error-codes"?: string[];
+    };
+    if (data.success) {
+      if (data.action !== TURNSTILE_ACTION) {
+        return { ok: false, message: "The bot check didn't match this page. Please reload and try again." };
+      }
+      const hosts = allowedHostnames();
+      if (hosts.length && !hosts.includes((data.hostname ?? "").toLowerCase())) {
+        return { ok: false, message: "The bot check came from a different site. Please reload and try again." };
+      }
+      return { ok: true };
+    }
     const codes = data["error-codes"] ?? [];
     if (codes.includes("timeout-or-duplicate")) {
       return { ok: false, message: "The bot check expired. Please try again." };
