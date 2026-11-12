@@ -4,7 +4,11 @@ import { networkError } from "@/lib/errors";
 export type { RetailerListing };
 
 /** Extra input for adapters that search by image. */
-export type SearchContext = { imageUrl?: string };
+export type SearchContext = {
+  imageUrl?: string;
+  /** Public URL of just this item cropped from the pin; image adapters prefer it. */
+  cropUrl?: string;
+};
 
 export interface RetailerAdapter {
   name: string;

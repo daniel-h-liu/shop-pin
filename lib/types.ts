@@ -23,18 +23,23 @@ export type DetectedItem = ProductID & {
   typeKeywords: string[]; // words a matching listing title should contain
   colors: string[];
   pattern: string; // "solid", "striped", ...
+  /** Where the item sits in the pin photo: [ymin, xmin, ymax, xmax], 0-1000. */
+  box?: [number, number, number, number];
+  /** Public URL of the item cropped out of the pin (for Google Lens), when the server has one. */
+  cropUrl?: string;
   search: ItemSearch;
 };
 
 export type RetailerListing = {
   retailer: string;
   title: string;
-  price: number;
+  price: number; // 0 = price not listed (only possible for `original`)
   currency: string;
   url: string;
   imageUrl?: string;
   matchConfidence: number; // 0-1
   matchReason?: string; // from the visual check
+  exact?: boolean; // the visual check judged it to be the very same product
 };
 
 /** How each retailer responded to one item search. */
@@ -47,7 +52,11 @@ export type AdapterOutcome = {
 };
 
 export type ItemSearch = {
-  status: "idle" | "searching" | "done" | "error";
+  /** "checking" = first results are in, the visual check is still running */
+  status: "idle" | "searching" | "checking" | "done" | "error";
+  /** The exact piece, when found: shown first at any price (may have no price). */
+  original?: RetailerListing;
+  /** Similar pieces, cheapest first (cheaper than `original` when it has a price). */
   deals: RetailerListing[];
   verified?: boolean; // deals passed Gemini's visual check
   note?: string; // why deals is empty / caveats, in plain English

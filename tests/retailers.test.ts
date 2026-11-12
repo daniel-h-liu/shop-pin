@@ -146,7 +146,7 @@ describe("serpapiAdapter", () => {
 });
 
 describe("googleLensAdapter", () => {
-  it("searches by image with the item as a text hint and keeps only priced, in-stock results", async () => {
+  it("searches the whole pin with a text hint; keeps priced in-stock results plus unpriced possible originals", async () => {
     vi.stubEnv("SERPAPI_KEY", "k");
     let called = "";
     vi.stubGlobal(
@@ -170,8 +170,37 @@ describe("googleLensAdapter", () => {
     expect(called).toContain("engine=google_lens");
     expect(called).toContain("url=https%3A%2F%2Fi.pinimg.com");
     expect(called).toContain("q=nike+air+max+90+white");
-    expect(out).toHaveLength(1);
+    expect(out).toHaveLength(2);
     expect(out[0]).toMatchObject({ retailer: "Nike", price: 120, imageUrl: "https://a.example/1.jpg" });
+    expect(out[1]).toMatchObject({ retailer: "Blog", price: 0 });
+  });
+
+  it("searches a crop of the item by image alone, and never treats social sites as the original", async () => {
+    vi.stubEnv("SERPAPI_KEY", "k");
+    let called = "";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        called = url;
+        return new Response(
+          JSON.stringify({
+            visual_matches: [
+              { position: 1, title: "Pin of the shoe", link: "https://www.pinterest.com/pin/1", source: "Pinterest" },
+              { position: 2, title: "Nike Air Max 90", link: "https://www.nike.com/t/air-max-90", source: "Nike" },
+              { position: 30, title: "Far-down unpriced page", link: "https://z.example/30", source: "Z" },
+            ],
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+    const out = await googleLensAdapter.search(product, {
+      imageUrl: "https://i.pinimg.com/736x/x.jpg",
+      cropUrl: "https://shop.example/api/crop?src=x&box=1,2,3,4",
+    });
+    expect(called).toContain("url=https%3A%2F%2Fshop.example%2Fapi%2Fcrop");
+    expect(called).not.toContain("q=");
+    expect(out.map((l) => l.retailer)).toEqual(["Nike"]);
   });
 
   it("refuses non-public images (uploads) with a readable reason", async () => {

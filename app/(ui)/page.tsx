@@ -6,6 +6,7 @@ import Collage from "./components/Collage";
 import Footer from "./components/Footer";
 import GoldFrame from "./components/GoldFrame";
 import Landing from "./components/Landing";
+import { NudeShapes } from "./components/Ornaments";
 import ShopModal from "./components/ShopModal";
 import Wordmark from "./components/Wordmark";
 import { allowance, boardNameFromUrl, type AccountUsage, type StatusResponse } from "./types";
@@ -114,7 +115,7 @@ export default function Home() {
     async (pinId: string, itemId: string) => {
       if (!jobId || !job) return;
       const current = job.results.find((r) => r.pin.pinId === pinId)?.items.find((i) => i.itemId === itemId);
-      if (!current || current.search.status === "searching") return;
+      if (!current || current.search.status === "searching" || current.search.status === "checking") return;
       patchItem(pinId, { ...current, search: { status: "searching", deals: [] } });
       try {
         const res = await fetch(`/api/board/${jobId}/search`, {
@@ -122,11 +123,29 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pinId, itemId }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? `Search failed (HTTP ${res.status}).`);
-        const updated = (data.result as PinResult).items.find((i) => i.itemId === itemId);
-        if (updated) patchItem(pinId, updated);
-        setJob((prev) => prev && { ...prev, usage: data.usage });
+        if (!res.ok || !res.body) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? `Search failed (HTTP ${res.status}).`);
+        }
+        // One JSON line per update: first results, then the visually checked ones.
+        const apply = (line: string) => {
+          if (!line.trim()) return;
+          const data = JSON.parse(line) as { result: PinResult; usage: StatusResponse["usage"] };
+          const updated = data.result.items.find((i) => i.itemId === itemId);
+          if (updated) patchItem(pinId, updated);
+          setJob((prev) => prev && { ...prev, usage: data.usage });
+        };
+        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffered = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffered += value;
+          const lines = buffered.split("\n");
+          buffered = lines.pop() ?? "";
+          lines.forEach(apply);
+        }
+        apply(buffered);
       } catch (err) {
         patchItem(pinId, {
           ...current,
@@ -161,6 +180,7 @@ export default function Home() {
   if (!jobId) {
     return (
       <>
+        <NudeShapes />
         <GoldFrame />
         <Landing account={account} busy={submitting} error={submitError} onSubmit={submit} />
       </>
@@ -179,7 +199,7 @@ export default function Home() {
       <GoldFrame />
       <div className="relative z-10 flex min-h-svh flex-col overflow-x-clip">
         <header className="sticky top-[env(safe-area-inset-top)] z-20 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-cream/90 px-[max(16px,env(safe-area-inset-left))] py-3 backdrop-blur-md xl:px-28">
-          <button type="button" onClick={goHome} aria-label="Start over with another board" className="text-[34px] leading-none">
+          <button type="button" onClick={goHome} aria-label="Start over with another board" className="text-[26px] leading-none">
             <Wordmark />
           </button>
           {boardUrl && (
@@ -243,7 +263,7 @@ export default function Home() {
           )}
 
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 pt-7 pb-5">
-            <h1 className="font-display text-[clamp(36px,5vw,56px)] leading-tight">
+            <h1 className="font-display text-[clamp(30px,4vw,46px)] leading-tight">
               {job?.boardName ?? (boardUrl ? boardNameFromUrl(boardUrl) : "Your board")}
             </h1>
             <span className="label">

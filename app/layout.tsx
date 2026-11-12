@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import CursorDot from "./(ui)/components/CursorDot";
 import "./globals.css";
 
 // Fonts are self-hosted from app/fonts (Latin subset, SIL Open Font License)
@@ -7,11 +8,11 @@ import "./globals.css";
 // .woff2 into app/fonts, load it here, and point the role variables in
 // globals.css (--font-display, --font-heading, --font-body, --font-label) at it.
 
-// Display: the wordmark and big titles.
-const leagueScript = localFont({
-  src: "./fonts/LeagueScript-Regular-latin.woff2",
+// Display: the wordmark and big titles. Gloock has a single weight.
+const gloock = localFont({
+  src: "./fonts/Gloock-Regular-latin.woff2",
   weight: "400",
-  variable: "--font-league-script",
+  variable: "--font-gloock",
   display: "swap",
 });
 
@@ -65,10 +66,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const fonts = [leagueScript, lato, literata, dmMono].map((f) => f.variable).join(" ");
+  const fonts = [gloock, lato, literata, dmMono].map((f) => f.variable).join(" ");
   return (
     <html lang="en" className={`${fonts} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <CursorDot />
+      </body>
     </html>
   );
 }

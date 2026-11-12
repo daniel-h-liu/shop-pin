@@ -115,9 +115,13 @@ export default function ShopModal({
 function PieceRow({ item, disabled, onSearch }: { item: DetectedItem; disabled: boolean; onSearch: () => void }) {
   const s = item.search;
   const searching = s.status === "searching";
+  const checking = s.status === "checking";
+  const busy = searching || checking;
   const searched = s.status === "done" || s.status === "error";
   const paid = (s.sources ?? []).filter((src) => PAID_SOURCES.has(src.adapter) && !src.cached).length;
   const allCached = (s.sources ?? []).length > 0 && (s.sources ?? []).every((src) => src.cached);
+  const pieceLens = item.cropUrl ? lensUrl(item.cropUrl) : null;
+  const original = s.status === "done" ? s.original : undefined;
 
   return (
     <li className="flex flex-col gap-2.5 border-t border-line py-3.5">
@@ -127,14 +131,14 @@ function PieceRow({ item, disabled, onSearch }: { item: DetectedItem; disabled: 
           <button
             type="button"
             onClick={onSearch}
-            disabled={searching || (disabled && !searched)}
+            disabled={busy || (disabled && !searched)}
             className={`shrink-0 rounded-full px-4 py-2 font-label text-xs font-medium tracking-wide transition-colors ${
-              searching
+              busy
                 ? "cursor-progress bg-burgundy-soft text-burgundy"
                 : "bg-burgundy text-paper hover:bg-burgundy-deep disabled:cursor-not-allowed disabled:opacity-40"
             }`}
           >
-            {searching ? "Searching…" : s.status === "error" ? "Try again" : "Search"}
+            {searching ? "Searching…" : checking ? "Checking…" : s.status === "error" ? "Try again" : "Search"}
           </button>
         )}
       </div>
@@ -146,21 +150,67 @@ function PieceRow({ item, disabled, onSearch }: { item: DetectedItem; disabled: 
         </div>
       )}
 
+      {checking && (
+        <div className="flex flex-col gap-1" aria-live="polite">
+          <p className="flex items-center gap-2 text-xs text-ink-soft">
+            <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-burgundy/25 border-t-burgundy" aria-hidden="true" />
+            First matches from Google Lens. Checking which ones really match…
+          </p>
+          <div className="flex flex-col gap-1 opacity-70">
+            {s.deals.map((deal, i) => (
+              <DealRow key={`${deal.url}-${i}`} deal={deal} index={i} sub="checking" />
+            ))}
+          </div>
+        </div>
+      )}
+
       {searched && (
         <div className="flex flex-col gap-1" aria-live="polite">
-          {s.deals.map((deal, i) => (
-            <DealRow key={`${deal.url}-${i}`} deal={deal} lowest={i === 0} verified={!!s.verified} index={i} />
-          ))}
+          {original && (
+            <>
+              <span className="label mt-1">The original</span>
+              <DealRow deal={original} index={0} sub="exact" />
+            </>
+          )}
+          {s.deals.length > 0 && (
+            <>
+              {(original || s.verified) && (
+                <span className="label mt-2">
+                  {original && original.price > 0 ? "Cheaper look-alikes" : "Look-alikes"}
+                  <span className="ml-2 tracking-normal normal-case">· similar, may not be the exact piece</span>
+                </span>
+              )}
+              {s.deals.map((deal, i) => (
+                <DealRow
+                  key={`${deal.url}-${i}`}
+                  deal={deal}
+                  index={i + (original ? 1 : 0)}
+                  lowest={i === 0}
+                  sub={deal.exact ? "exact" : s.verified ? "score" : "text"}
+                />
+              ))}
+            </>
+          )}
           {s.note && (
-            <p className={`text-xs ${s.status === "error" || s.deals.length === 0 ? "rounded-xl bg-amber-bg px-3 py-2 text-amber" : "text-ink-soft"}`}>
+            <p
+              className={`text-xs ${
+                s.status === "error" || (s.deals.length === 0 && !original) ? "rounded-xl bg-amber-bg px-3 py-2 text-amber" : "text-ink-soft"
+              }`}
+            >
               {s.note}
             </p>
           )}
           {s.status === "done" && (
             <p className="text-[11px] text-ink-soft">
-              {allCached
-                ? "Saved result, didn't use a search."
-                : `Google Lens · used ${paid || 1} of this month's searches.`}
+              {allCached ? "Saved result, didn't use a search." : `Google Lens · used ${paid || 1} of this month's searches.`}
+              {pieceLens && (
+                <>
+                  {" "}
+                  <a href={pieceLens} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
+                    See more of this piece in Google Lens ↗
+                  </a>
+                </>
+              )}
             </p>
           )}
         </div>
@@ -169,13 +219,29 @@ function PieceRow({ item, disabled, onSearch }: { item: DetectedItem; disabled: 
   );
 }
 
-function DealRow({ deal, lowest, verified, index }: { deal: RetailerListing; lowest: boolean; verified: boolean; index: number }) {
-  const price = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: deal.currency || "USD",
-    maximumFractionDigits: deal.price % 1 === 0 ? 0 : 2,
-  }).format(deal.price);
+function DealRow({
+  deal,
+  index,
+  lowest = false,
+  sub,
+}: {
+  deal: RetailerListing;
+  index: number;
+  lowest?: boolean;
+  /** exact = judged the same product; score = visual match %; text = title match only; checking = not checked yet */
+  sub: "exact" | "score" | "text" | "checking";
+}) {
+  const price =
+    deal.price > 0
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: deal.currency || "USD",
+          maximumFractionDigits: deal.price % 1 === 0 ? 0 : 2,
+        }).format(deal.price)
+      : null;
   const pct = Math.round(deal.matchConfidence * 100);
+  const detail =
+    sub === "exact" ? "exact match" : sub === "score" ? `${pct}% match` : sub === "text" ? "title match only" : "not checked yet";
 
   return (
     <a
@@ -195,12 +261,12 @@ function DealRow({ deal, lowest, verified, index }: { deal: RetailerListing; low
       <span className="min-w-0">
         <span className="line-clamp-2 text-[13px] leading-snug break-words">{deal.title}</span>
         <span className="text-[11px] text-ink-soft">
-          {deal.retailer} · {verified ? `${pct}% match` : "title match only"}
+          {deal.retailer} · <span className={sub === "exact" ? "text-burgundy" : ""}>{detail}</span>
         </span>
       </span>
       <span className="text-right font-heading text-xl tabular-nums">
-        {price}
-        {lowest && <span className="block font-label text-[10px] tracking-wide text-burgundy">lowest</span>}
+        {price ?? <span className="block font-label text-[11px] leading-tight text-ink-soft">price on site</span>}
+        {lowest && price && <span className="block font-label text-[10px] tracking-wide text-burgundy">lowest</span>}
       </span>
     </a>
   );

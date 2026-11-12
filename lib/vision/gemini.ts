@@ -95,6 +95,8 @@ export function classifyGeminiError(err: unknown): ServiceError {
 export type GeminiHooks = {
   onCall?: () => void; // a request was actually sent
   onRateLimitWait?: () => void;
+  /** Higher runs first. Item searches (someone is waiting) jump ahead of pin reading. */
+  priority?: number;
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -119,7 +121,7 @@ export async function generateJson(
           contents: [{ role: "user", parts }],
           config: { responseMimeType: "application/json", responseSchema },
         });
-      });
+      }, { priority: hooks.priority ?? 0 });
       const text = response?.text;
       if (!text) throw new ServiceError(SERVICE, "bad_response", "Gemini returned an empty response.");
       return text;

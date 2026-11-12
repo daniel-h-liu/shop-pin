@@ -11,7 +11,7 @@ function Star({ y }: { y: number }) {
 function Top() {
   return (
     <svg width="64" height="190" viewBox="0 0 64 190" aria-hidden="true" className="block shrink-0">
-      <path d="M10 190 L10 70 A22 22 0 0 1 54 70 L54 190" fill="var(--nude-soft)" fillOpacity="0.45" stroke="var(--gold)" strokeWidth="0.8" />
+      <path d="M10 190 L10 70 A22 22 0 0 1 54 70 L54 190" fill="var(--nude-soft)" fillOpacity="0.45" stroke="var(--gold)" strokeWidth="1" />
       <path d="M19 190 L19 74 A13 13 0 0 1 45 74 L45 190" fill="none" stroke="var(--gold)" strokeWidth="0.6" strokeOpacity="0.7" />
       <Star y={26} />
       <circle cx="32" cy="110" r="2.5" fill="none" stroke="var(--gold)" strokeWidth="0.8" />
@@ -43,15 +43,15 @@ function Bottom() {
 function Side({ mirrored }: { mirrored?: boolean }) {
   return (
     <div
-      className={`pointer-events-none fixed top-0 bottom-0 z-0 hidden w-16 flex-col items-center py-6 opacity-70 xl:flex ${
+      className={`pointer-events-none fixed top-0 bottom-0 z-0 hidden w-16 flex-col items-center py-6 xl:flex ${
         mirrored ? "right-3 -scale-x-100" : "left-3"
       }`}
       aria-hidden="true"
     >
       <Top />
-      <div className="w-px flex-1 bg-gold/50" />
+      <div className="w-px flex-1 bg-gold/80" />
       <Middle />
-      <div className="w-px flex-1 bg-gold/50" />
+      <div className="w-px flex-1 bg-gold/80" />
       <Bottom />
     </div>
   );

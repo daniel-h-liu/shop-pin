@@ -17,6 +17,7 @@ const ItemSchema = z.object({
   brand: z.string().nullish(),
   typeKeywords: z.array(z.string()),
   searchQuery: z.string(),
+  box_2d: z.array(z.number()).nullish(),
 });
 
 const DetectionSchema = z.object({
@@ -46,6 +47,7 @@ For each item:
 - gender: "men", "women" or "unisex" for apparel, null otherwise.
 - brand: only if a logo or label is legible, otherwise null.
 - typeKeywords: 2-5 lowercase single words, at least one of which would appear in the title of ANY store listing for this kind of item (the type plus synonyms), e.g. ["sweater","pullover","jumper","knit"] or ["boots","boot","chelsea"].
+- box_2d: a tight bounding box around this item in the image as [ymin, xmin, ymax, xmax], each normalized to 0-1000.
 - searchQuery: a Google Shopping query of 3-8 words built as gender + color + pattern (omit if solid) + key material/detail + item type, e.g. "men's olive suede chelsea boots", "women's cream cable knit crewneck sweater". No brand unless legible. No vague words like "stylish" or "outfit".
 
 confidence: "low" if the image contains no purchasable product (quote or text graphic, meme, landscape, infographic, abstract art) and return no items; "high" if the items are clear; "medium" otherwise.`;
@@ -69,6 +71,7 @@ const RESPONSE_SCHEMA = {
           brand: { type: Type.STRING, nullable: true },
           typeKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
           searchQuery: { type: Type.STRING },
+          box_2d: { type: Type.ARRAY, items: { type: Type.NUMBER } },
         },
         required: [
           "itemType",
@@ -79,12 +82,22 @@ const RESPONSE_SCHEMA = {
           "attributes",
           "typeKeywords",
           "searchQuery",
+          "box_2d",
         ],
       },
     },
   },
   required: ["confidence", "items"],
 };
+
+/** Validate Gemini's [ymin, xmin, ymax, xmax] (0-1000); drop anything unusable. */
+export function toBox(raw: number[] | null | undefined): DetectedItem["box"] {
+  if (!raw || raw.length !== 4 || raw.some((n) => !Number.isFinite(n))) return undefined;
+  const [y0, x0, y1, x1] = raw.map((n) => Math.max(0, Math.min(1000, Math.round(n))));
+  if (y1 - y0 < 20 || x1 - x0 < 20) return undefined; // degenerate / tiny
+  if (y1 - y0 > 990 && x1 - x0 > 990) return undefined; // whole image: cropping adds nothing
+  return [y0, x0, y1, x1];
+}
 
 /** One Gemini call per pin: every purchasable item in the image. */
 export async function detectItems(pin: Pin, hooks: GeminiHooks = {}): Promise<Detection> {
@@ -129,6 +142,7 @@ export async function detectItems(pin: Pin, hooks: GeminiHooks = {}): Promise<De
       ),
       typeKeywords,
       searchQuery: it.searchQuery,
+      box: toBox(it.box_2d),
       confidence: parsed!.confidence,
       search: { status: "idle", deals: [] },
     };

@@ -6,8 +6,12 @@ export const runtime = "nodejs";
 
 /**
  * POST /api/board/[jobId]/search { pinId, itemId } — search retailers for
- * one detected item and visually verify the matches. Returns the updated
- * pin result and the board's usage counters.
+ * one detected item and visually verify the matches.
+ *
+ * Streams newline-delimited JSON, one line per update, each
+ * { result, usage } (the updated pin result and the board's usage counters):
+ * first when the search results are in (item status "checking"), then the
+ * final one after the visual check ("done" / "error").
  */
 export async function POST(
   req: Request,
@@ -24,10 +28,39 @@ export async function POST(
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  if (!body.pinId || !body.itemId) {
+  const { pinId, itemId } = body;
+  if (!pinId || !itemId) {
     return NextResponse.json({ error: "Provide pinId and itemId" }, { status: 400 });
   }
-  const item = await searchItem(job, body.pinId, body.itemId);
-  if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
-  return NextResponse.json({ result: job.results[body.pinId], usage: job.usage });
+  if (!job.results[pinId]?.items.some((i) => i.itemId === itemId)) {
+    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  }
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = () => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify({ result: job.results[pinId], usage: job.usage }) + "\n"));
+        } catch {
+          // client went away; the search still finishes and is cached
+        }
+      };
+      await searchItem(job, pinId, itemId, { onProgress: send });
+      send();
+      try {
+        controller.close();
+      } catch {
+        // already closed
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Accel-Buffering": "no", // don't let a proxy hold back the first update
+    },
+  });
 }

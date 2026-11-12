@@ -4,16 +4,16 @@
  * shop-pin! design tokens.
  *
  * Fonts: each role has its own variable, so they can be swapped independently.
- * The --font-league-script / --font-lato / --font-literata / --font-dm-mono
+ * The --font-gloock / --font-lato / --font-literata / --font-dm-mono
  * variables come from next/font/local in app/layout.tsx.
- *   display  -> wordmark and big titles (League Script)
+ *   display  -> wordmark and big titles (Gloock)
  *   heading  -> product names, prices, step titles (Lato)
  *   body     -> running text (Literata)
  *   label    -> search bar, buttons, small labels (DM Mono)
  */
 @theme static {
-  --font-wordmark: var(--font-league-script), "Snell Roundhand", cursive;
-  --font-display: var(--font-league-script), "Snell Roundhand", cursive;
+  --font-wordmark: var(--font-gloock), "Didot", Georgia, serif;
+  --font-display: var(--font-gloock), "Didot", Georgia, serif;
   --font-heading: var(--font-lato), "Helvetica Neue", Arial, sans-serif;
   --font-label: var(--font-dm-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --font-body: var(--font-literata), Georgia, serif;

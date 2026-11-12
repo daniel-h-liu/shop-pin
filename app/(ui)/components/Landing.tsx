@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { allowance, type AccountUsage } from "../types";
+import { Divider, Flourish } from "./Ornaments";
 import BotCheck from "./BotCheck";
 import Footer from "./Footer";
 import Wordmark from "./Wordmark";
@@ -46,10 +47,20 @@ export default function Landing({
 
   return (
     <div className="relative z-10 flex h-full min-h-svh flex-col px-[max(16px,env(safe-area-inset-left))] xl:px-28">
-      <main className="flex flex-1 flex-col items-center justify-center gap-7 py-8 text-center">
-        <h1 className="text-[clamp(56px,11vw,120px)] leading-[0.95] font-normal">
-          <Wordmark />
-        </h1>
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center gap-7 py-8 text-center">
+        <div className="-mb-2 flex flex-col items-center">
+          <div className="flex items-center gap-6">
+            <span className="hidden md:block">
+              <Flourish />
+            </span>
+            <h1 className="text-[clamp(52px,10vw,104px)] leading-[0.95]">
+              <Wordmark />
+            </h1>
+            <span className="hidden md:block">
+              <Flourish mirrored />
+            </span>
+          </div>
+        </div>
         <p className="max-w-full text-[15px] text-ink-soft sm:whitespace-nowrap">
           Paste a Pinterest board. We&apos;ll find each piece and where to buy it.
         </p>
@@ -134,6 +145,7 @@ export default function Landing({
         <p className="w-full max-w-3xl text-left text-xs text-ink-soft">
           If searches run out, steps 1 and 2 still work, and every pin opens in Google Lens.
         </p>
+        <Divider />
       </main>
       <Footer />
     </div>

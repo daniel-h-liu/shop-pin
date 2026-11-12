@@ -1,5 +1,4 @@
 import type { RetailerAdapter } from "./types";
-import { serpapiAdapter } from "./serpapi";
 import { googleLensAdapter } from "./googleLens";
 import { ebayAdapter } from "./ebay";
 
@@ -14,14 +13,13 @@ import { ebayAdapter } from "./ebay";
 
 /**
  * Adapter registry — add new retailers here without touching orchestration code.
- * Google Lens (visual search by the pin photo) is the primary source; Google
- * Shopping text search is a fallback that only spends a second SerpApi search
- * when Lens finds too few priced products.
+ * Google Lens (visual search by the item's photo) is the main source.
+ *
+ * Google Shopping text search (serpapiAdapter) is deliberately not listed:
+ * searching by words alone surfaced pieces that merely sound similar, and it
+ * cost a second SerpApi search. It can come back as a `tier: "fallback"`
+ * adapter, which only runs when the primary ones find too few listings.
  */
-export const adapters: RetailerAdapter[] = [
-  googleLensAdapter,
-  { ...serpapiAdapter, tier: "fallback" },
-  ebayAdapter,
-];
+export const adapters: RetailerAdapter[] = [googleLensAdapter, ebayAdapter];
 
 export type { RetailerAdapter } from "./types";

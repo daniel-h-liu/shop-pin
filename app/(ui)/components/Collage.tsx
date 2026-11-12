@@ -188,8 +188,12 @@ function PinTile({
         lastPointer.current = e.pointerType;
       }}
       onClick={(e) => {
-        // Touch: first tap bulges the pin and shows Shop.
-        if (lastPointer.current !== "mouse" && !(e.target as HTMLElement).closest("button")) onHot(!hot);
+        if ((e.target as HTMLElement).closest("button")) return; // the Shop button handles itself
+        // Mouse: clicking anywhere on the pin opens it. Touch: the first tap
+        // bulges the pin, a second tap opens it.
+        if (lastPointer.current !== "mouse" && !hot) onHot(true);
+        else if (shoppable) onShop();
+        else if (lastPointer.current !== "mouse") onHot(false);
       }}
       onFocus={() => onHot(true)}
       onBlur={(e) => {
@@ -199,7 +203,13 @@ function PinTile({
       <div
         tabIndex={0}
         aria-label={result.pin.title ?? "Pin"}
-        className={`animate-pin-pop relative h-full w-full overflow-hidden rounded-pin bg-nude-soft transition-shadow duration-300 ${
+        onKeyDown={(e) => {
+          if (shoppable && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onShop();
+          }
+        }}
+        className={`animate-pin-pop relative h-full w-full overflow-hidden rounded-pin bg-nude-soft transition-shadow duration-300 ${shoppable ? "cursor-pointer" : ""} ${
           hot ? "shadow-[0_18px_40px_-14px_rgba(38,34,29,0.45)]" : "shadow-[0_1px_2px_rgba(38,34,29,0.08)]"
         }`}
       >

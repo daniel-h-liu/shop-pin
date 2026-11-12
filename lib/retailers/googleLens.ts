@@ -28,11 +28,31 @@ export function lensUrl(imageUrl: string): string {
   return `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
 }
 
+/** Sites that repost photos rather than sell things: never "the original". */
+const NOT_SELLERS =
+  /(^|\.)(pinterest|instagram|facebook|tiktok|twitter|x|youtube|reddit|tumblr|threads|weheartit|lemon8-app|pinimg)\.[a-z.]+$/i;
+/** Unpriced matches this high in Lens's ranking may be the exact product's page. */
+const ORIGINAL_MAX_POSITION = 12;
+const MAX_UNPRICED = 4;
+
+function hostOf(link: string): string {
+  try {
+    return new URL(link).hostname;
+  } catch {
+    return "";
+  }
+}
+
 /**
- * Google Lens via SerpApi: searches by the pin photo itself, with the item's
- * description as a text hint ("men's brown zip jacket") so Lens focuses on
- * that one item in an outfit photo. Uses the same SerpApi allowance as
- * Google Shopping (1 search per call).
+ * Google Lens via SerpApi (1 search per call).
+ *
+ * With a crop of just this item (ctx.cropUrl) it searches purely by image,
+ * like drawing a box in Lens. Without one it searches the whole pin photo
+ * with the item's description as a text hint, which is less precise.
+ *
+ * Returns priced, in-stock products, plus a few top unpriced matches from
+ * non-social sites (price 0): Lens often finds the exact product on a page
+ * that doesn't show a price, and the visual check decides if it's the one.
  */
 export const googleLensAdapter: RetailerAdapter = {
   name: "Google Lens",
@@ -43,7 +63,7 @@ export const googleLensAdapter: RetailerAdapter = {
   async search(product: ProductID, ctx?: SearchContext): Promise<RetailerListing[]> {
     const key = process.env.SERPAPI_KEY;
     if (!key) throw new ServiceError(SERVICE, "auth", "SERPAPI_KEY isn't set.");
-    const imageUrl = ctx?.imageUrl;
+    const imageUrl = ctx?.cropUrl ?? ctx?.imageUrl;
     if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
       throw new ServiceError(
         SERVICE,
@@ -55,12 +75,14 @@ export const googleLensAdapter: RetailerAdapter = {
     const qs = new URLSearchParams({
       engine: "google_lens",
       url: imageUrl,
-      q: product.searchQuery,
       type: "all",
       country: "us",
       hl: "en",
       api_key: key,
     });
+    // A text hint only helps when Lens sees the whole outfit; with a crop it
+    // pulls results toward things that merely sound similar.
+    if (!ctx?.cropUrl) qs.set("q", product.searchQuery);
     const res = await fetchWithRetryOn429(`https://serpapi.com/search.json?${qs}`, undefined, 1000, SERVICE, LENS_TIMEOUT_MS);
     let data: { visual_matches?: LensMatch[]; error?: string };
     try {
@@ -75,24 +97,33 @@ export const googleLensAdapter: RetailerAdapter = {
     if (err) throw err;
 
     const matches = data.visual_matches ?? [];
+    let unpriced = 0;
     return matches
       .map((m, i): RetailerListing | null => {
+        if (!m.title || !m.link) return null;
+        const position = m.position ?? i + 1;
+        // Lens orders results by visual similarity; blend that with the title match.
+        const rank = 1 - Math.min(position, 60) / 60;
         const price = m.price?.extracted_value;
-        // Only shoppable results: a price in dollars and not marked out of stock.
-        if (!m.title || !m.link || !price || price <= 0) return null;
+        const listing = (p: number): RetailerListing => ({
+          retailer: m.source || hostOf(m.link!) || "Google Lens",
+          title: m.title!,
+          price: p,
+          currency: "USD",
+          url: m.link!,
+          imageUrl: m.thumbnail ?? m.image,
+          matchConfidence: Math.round((0.5 * rank + 0.5 * scoreMatch(product, m.title!)) * 100) / 100,
+        });
+        if (!price || price <= 0) {
+          // Possibly the exact product on a page without a price.
+          if (position > ORIGINAL_MAX_POSITION || unpriced >= MAX_UNPRICED) return null;
+          if (NOT_SELLERS.test(hostOf(m.link))) return null;
+          unpriced++;
+          return listing(0);
+        }
         if (m.price?.currency && m.price.currency !== "$") return null;
         if (m.in_stock === false) return null;
-        // Lens orders results by visual similarity; blend that with the title match.
-        const rank = 1 - Math.min(m.position ?? i + 1, 60) / 60;
-        return {
-          retailer: m.source || "Google Lens",
-          title: m.title,
-          price,
-          currency: "USD",
-          url: m.link,
-          imageUrl: m.thumbnail ?? m.image,
-          matchConfidence: Math.round((0.5 * rank + 0.5 * scoreMatch(product, m.title)) * 100) / 100,
-        };
+        return listing(price);
       })
       .filter((l): l is RetailerListing => l !== null);
   },

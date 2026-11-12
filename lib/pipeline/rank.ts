@@ -52,19 +52,45 @@ export function rankListings(
   return dedupeListings(sorted).slice(0, topN);
 }
 
+/** Unpriced listings (possible exact-product pages) given a visual check slot. */
+export const MAX_UNPRICED_CANDIDATES = 3;
+
 /**
- * Choose which listings get the (paid) visual check: right item type in the
- * title first, then best title score, deduped, at most `max`.
+ * Choose which listings get the visual check: a few top unpriced matches
+ * (Lens often finds the exact product on a page without a price), then
+ * priced ones, right item type in the title first, best score first,
+ * deduped, at most `max`.
  */
 export function pickCandidates(
   item: DetectedItem,
   listings: RetailerListing[],
   max: number,
 ): RetailerListing[] {
-  const usable = dedupeListings(listings.filter((l) => l.price > 0 && l.imageUrl));
-  const typed = usable.filter((l) => titleHasItemType(item, l.title));
-  const pool = typed.length >= Math.min(4, max) ? typed : usable;
-  return [...pool].sort((a, b) => b.matchConfidence - a.matchConfidence).slice(0, max);
+  const usable = dedupeListings(listings.filter((l) => l.imageUrl));
+  const byScore = (a: RetailerListing, b: RetailerListing) => b.matchConfidence - a.matchConfidence;
+  const unpriced = usable.filter((l) => l.price <= 0).sort(byScore).slice(0, Math.min(MAX_UNPRICED_CANDIDATES, max));
+  const priced = usable.filter((l) => l.price > 0);
+  const typed = priced.filter((l) => titleHasItemType(item, l.title));
+  const pool = typed.length >= Math.min(4, max) ? typed : priced;
+  return [...unpriced, ...[...pool].sort(byScore)].slice(0, max);
+}
+
+/**
+ * Split visually checked listings into the original (the best listing judged
+ * to be the exact product, at any price, priced ones preferred) and the
+ * look-alikes: cheapest first, and only cheaper than the original when it
+ * has a price. Other listings of the exact product stay among the deals.
+ */
+export function splitOriginal(
+  passed: RetailerListing[],
+  topN = TOP_N,
+): { original?: RetailerListing; deals: RetailerListing[] } {
+  const original = passed
+    .filter((l) => l.exact)
+    .sort((a, b) => b.matchConfidence - a.matchConfidence || Number(b.price > 0) - Number(a.price > 0))[0];
+  const rest = passed.filter((l) => l !== original && l.url !== original?.url);
+  const cheaper = original && original.price > 0 ? rest.filter((l) => l.price < original.price) : rest;
+  return { original, deals: rankListings(cheaper, { minConfidence: 0, topN }) };
 }
 
 /** Fallback when the visual check is unavailable: right item type + title score, then price. */

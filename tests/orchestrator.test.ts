@@ -172,6 +172,49 @@ describe("searchItem (on demand)", () => {
     expect(job.usage.geminiVerify).toBe(1);
   });
 
+  it("shows first results while checking, then the original (any price) and cheaper look-alikes", async () => {
+    const job = await jobWithItem();
+    const progress: string[] = [];
+    const original = { ...listing("brand", 0, "Red wool crewneck sweater by Brand"), url: "https://brand.example/item" };
+    const pricey = listing("store", 400);
+    const item = await searchItem(job, "x", "x#0", {
+      adapters: [adapter("a", async () => [original, pricey, listing("a", 30), listing("a", 10)])],
+      verify: async (_img, _item, cands) => ({
+        passed: cands.map((c) => ({ ...c, matchConfidence: 0.8, exact: c.url === original.url })),
+        checked: cands.length,
+      }),
+      onProgress: (it) => progress.push(`${it.search.status}:${it.search.deals.length}`),
+    });
+    expect(progress).toEqual(["checking:3"]); // priced listings only, before the check
+    expect(item?.search.status).toBe("done");
+    expect(item?.search.original?.url).toBe(original.url);
+    expect(item?.search.deals.map((d) => d.price)).toEqual([10, 30, 400]); // original has no price: keep all
+  });
+
+  it("only keeps look-alikes cheaper than a priced original", async () => {
+    const job = await jobWithItem();
+    const original = listing("brand", 200);
+    const item = await searchItem(job, "x", "x#0", {
+      adapters: [adapter("a", async () => [original, listing("a", 400), listing("a", 30)])],
+      verify: async (_img, _item, cands) => ({
+        passed: cands.map((c) => ({ ...c, matchConfidence: 0.8, exact: c.url === original.url })),
+        checked: cands.length,
+      }),
+    });
+    expect(item?.search.original?.price).toBe(200);
+    expect(item?.search.deals.map((d) => d.price)).toEqual([30]);
+  });
+
+  it("asks Gemini to run item checks ahead of pin reading", async () => {
+    const job = await jobWithItem();
+    let priority: number | undefined;
+    await searchItem(job, "x", "x#0", {
+      adapters: [adapter("a", async () => [listing("a", 30)])],
+      verify: async (_img, _item, cands, hooks) => ((priority = hooks?.priority), { passed: cands, checked: cands.length }),
+    });
+    expect(priority).toBeGreaterThan(0);
+  });
+
   it("explains a quota failure instead of saying 'no deals'", async () => {
     const job = await jobWithItem();
     const item = await searchItem(job, "x", "x#0", {
