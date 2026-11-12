@@ -75,7 +75,7 @@ export default function Landing({
                 setUrl(e.target.value);
                 setFormError(null);
               }}
-              className="min-w-0 flex-1 bg-transparent py-2.5 text-[15px] outline-none placeholder:text-ink-soft/60"
+              className="min-w-0 flex-1 bg-transparent py-2.5 font-label text-[14px] outline-none placeholder:text-ink-soft/60"
             />
             <button
               type="submit"

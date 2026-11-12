@@ -179,7 +179,7 @@ export default function Home() {
       <GoldFrame />
       <div className="relative z-10 flex min-h-svh flex-col overflow-x-clip">
         <header className="sticky top-[env(safe-area-inset-top)] z-20 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-cream/90 px-[max(16px,env(safe-area-inset-left))] py-3 backdrop-blur-md xl:px-28">
-          <button type="button" onClick={goHome} aria-label="Start over with another board" className="text-[26px] leading-none">
+          <button type="button" onClick={goHome} aria-label="Start over with another board" className="text-[34px] leading-none">
             <Wordmark />
           </button>
           {boardUrl && (
@@ -243,7 +243,7 @@ export default function Home() {
           )}
 
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 pt-7 pb-5">
-            <h1 className="font-heading text-[clamp(28px,4vw,42px)] leading-tight">
+            <h1 className="font-display text-[clamp(36px,5vw,56px)] leading-tight">
               {job?.boardName ?? (boardUrl ? boardNameFromUrl(boardUrl) : "Your board")}
             </h1>
             <span className="label">

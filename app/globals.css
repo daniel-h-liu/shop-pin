@@ -3,17 +3,20 @@
 /*
  * shop-pin! design tokens.
  *
- * Fonts: each role has its own variable, so headings, labels and body text
- * can be swapped independently. The --font-playfair / --font-dm-mono
- * variables come from next/font in app/layout.tsx; to use another font
- * (e.g. a licensed Kangoro file via next/font/local), load it there and
- * point the role variables below at it.
+ * Fonts: each role has its own variable, so they can be swapped independently.
+ * The --font-league-script / --font-lato / --font-literata / --font-dm-mono
+ * variables come from next/font/local in app/layout.tsx.
+ *   display  -> wordmark and big titles (League Script)
+ *   heading  -> product names, prices, step titles (Lato)
+ *   body     -> running text (Literata)
+ *   label    -> search bar, buttons, small labels (DM Mono)
  */
 @theme static {
-  --font-wordmark: var(--font-playfair), "Didot", Georgia, serif;
-  --font-heading: var(--font-playfair), "Didot", Georgia, serif;
+  --font-wordmark: var(--font-league-script), "Snell Roundhand", cursive;
+  --font-display: var(--font-league-script), "Snell Roundhand", cursive;
+  --font-heading: var(--font-lato), "Helvetica Neue", Arial, sans-serif;
   --font-label: var(--font-dm-mono), ui-monospace, "SF Mono", Menlo, monospace;
-  --font-body: var(--font-dm-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-body: var(--font-literata), Georgia, serif;
   --radius-pin: 18px;
   --ease-bob: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
