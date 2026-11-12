@@ -1,7 +1,7 @@
 /**
  * Landing page decoration, in the same hairline gold style as GoldFrame:
- * flourishes beside the wordmark, a divider under the text, and flat nude
- * shapes that section off parts of the page.
+ * flourishes beside the wordmark and flat nude shapes that section off
+ * parts of the page.
  */
 
 const GOLD = "var(--gold)";
@@ -16,25 +16,6 @@ export function Flourish({ mirrored = false }: { mirrored?: boolean }) {
       <path d="M84 15 L92 7 L100 15 L92 23 Z" fill="none" stroke={GOLD} strokeWidth="0.9" />
       <path d="M92 11 L96 15 L92 19 L88 15 Z" fill={GOLD} fillOpacity="0.5" />
       <path d="M118 5 Q119 14 128 15 Q119 16 118 25 Q117 16 108 15 Q117 14 118 5Z" fill={GOLD} />
-    </svg>
-  );
-}
-
-/** Wide divider: hairlines meeting at a ring with a star. */
-export function Divider() {
-  return (
-    <svg width="100%" height="34" viewBox="0 0 600 34" preserveAspectRatio="xMidYMid meet" aria-hidden="true" className="max-w-xl">
-      <path d="M20 17 H262 M338 17 H580" stroke={GOLD} strokeWidth="0.8" />
-      <path d="M120 17 H250 M350 17 H480" stroke={GOLD} strokeWidth="2.4" strokeOpacity="0.2" />
-      {[20, 580].map((x) => (
-        <path key={x} d={`M${x} 13 L${x + 4} 17 L${x} 21 L${x - 4} 17 Z`} fill={GOLD} />
-      ))}
-      {[236, 364].map((x) => (
-        <circle key={x} cx={x} cy="17" r="2.2" fill="none" stroke={GOLD} strokeWidth="0.8" />
-      ))}
-      <circle cx="300" cy="17" r="15" fill="var(--nude-soft)" fillOpacity="0.5" stroke={GOLD} strokeWidth="0.8" />
-      <circle cx="300" cy="17" r="10" fill="none" stroke={GOLD} strokeWidth="0.5" />
-      <path d="M300 9 Q301 16 308 17 Q301 18 300 25 Q299 18 292 17 Q299 16 300 9Z" fill={GOLD} />
     </svg>
   );
 }
@@ -68,6 +49,10 @@ export function NudeShapes() {
           d="M60 40 C 120 -20, 300 -10, 370 50 C 430 105, 400 210, 320 250 C 240 290, 170 240, 120 200 C 60 150, 0 100, 60 40Z"
           fill="var(--nude)"
           fillOpacity="0.45"
+          stroke="var(--gold)"
+          strokeWidth="1"
+          strokeOpacity="0.55"
+          vectorEffect="non-scaling-stroke"
         />
       </svg>
       {/* top-left blob */}
@@ -75,6 +60,10 @@ export function NudeShapes() {
         <path
           d="M40 70 C 90 0, 220 10, 260 80 C 300 150, 250 250, 160 260 C 80 270, 20 220, 15 150 C 12 115, 20 95, 40 70Z"
           fill="var(--nude-soft)"
+          stroke="var(--gold)"
+          strokeWidth="1"
+          strokeOpacity="0.55"
+          vectorEffect="non-scaling-stroke"
         />
       </svg>
     </div>

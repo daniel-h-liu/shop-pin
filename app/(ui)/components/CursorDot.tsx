@@ -49,7 +49,7 @@ export default function CursorDot() {
       if (nowBig !== big) {
         big = nowBig;
         ring.style.transform = `translate(-50%, -50%) scale(${big ? 2.2 : 1})`;
-        ring.style.opacity = big ? "0.55" : "1";
+        ring.style.opacity = big ? "0.85" : "1";
       }
       if (!frame) frame = requestAnimationFrame(tick);
     };
@@ -76,7 +76,7 @@ export default function CursorDot() {
     >
       <div
         ref={circle}
-        className="h-3 w-3 rounded-full bg-burgundy transition-[transform,opacity] duration-300 ease-bob"
+        className="h-3 w-3 rounded-full bg-burgundy-bright transition-[transform,opacity] duration-300 ease-bob"
         style={{ transform: "translate(-50%, -50%)" }}
       />
     </div>

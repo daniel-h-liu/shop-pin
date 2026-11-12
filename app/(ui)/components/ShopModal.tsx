@@ -1,27 +1,45 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DetectedItem, PinResult, RetailerListing } from "@/lib/types";
 import { lensUrl } from "../types";
 
 const PAID_SOURCES = new Set(["Google Lens", "Google Shopping"]);
 
+/** Pin titles are often file names or SEO strings; only show readable ones. */
+function readableTitle(title: string | undefined): string | null {
+  if (!title) return null;
+  const t = title.replace(/\s+/g, " ").trim();
+  if (t.length < 4 || t.length > 140) return null;
+  if (!t.includes(" ") || /[_]{1,}|\.(jpe?g|png|webp)$/i.test(t)) return null; // slug-like
+  return t;
+}
+
+/** Taps landing this soon after the modal opens are leftovers from the tap that opened it. */
+const OPEN_GUARD_MS = 400;
+
 export default function ShopModal({
   result,
   outOfSearches,
   renews,
+  searchesLeft,
   onSearch,
   onClose,
 }: {
   result: PinResult;
   outOfSearches: boolean;
   renews: string | null;
+  /** Shared searches left this month, when known. */
+  searchesLeft: number | null;
   onSearch: (itemId: string) => void;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  // Ignore taps until the modal has settled (see OPEN_GUARD_MS).
+  const [armed, setArmed] = useState(false);
   const lens = lensUrl(result.pin.imageUrl);
   const n = result.items.length;
+  const caption = readableTitle(result.pin.title);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -37,6 +55,15 @@ export default function ShopModal({
     };
   }, [onClose]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), OPEN_GUARD_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  const guardedSearch = (itemId: string) => {
+    if (armed) onSearch(itemId);
+  };
+
   return (
     <div
       className="animate-fade-in fixed inset-0 z-50 grid place-items-center bg-ink/40 px-[max(16px,env(safe-area-inset-left))] py-[max(16px,env(safe-area-inset-top))]"
@@ -48,12 +75,12 @@ export default function ShopModal({
         aria-labelledby="shop-title"
         className="animate-modal-rise grid max-h-full w-full max-w-4xl overflow-y-auto rounded-3xl bg-paper shadow-[0_30px_80px_-20px_rgba(38,34,29,0.5)] md:grid-cols-[minmax(0,300px)_minmax(0,1fr)] md:overflow-hidden"
       >
-        {/* Pin + Lens */}
-        <div className="flex items-center gap-4 bg-nude-soft p-5 md:flex-col md:items-stretch">
+        {/* Pin + Lens (below the pieces on small screens) */}
+        <div className="order-last flex items-center gap-4 bg-nude-soft p-5 md:order-none md:flex-col md:items-stretch">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={result.pin.imageUrl}
-            alt={result.pin.title ?? ""}
+            alt={caption ?? ""}
             className="w-24 shrink-0 rounded-pin object-cover md:w-full"
           />
           {lens && (
@@ -66,8 +93,8 @@ export default function ShopModal({
               >
                 Open pin in Google Lens ↗
               </a>
-              <p className="text-center text-[11px] leading-snug text-ink-soft">
-                Opens a new tab. Draw a box around any piece to search it.
+              <p className="text-center text-xs leading-snug text-ink-soft">
+                Free, opens a new tab. Draw a box around any piece to search it yourself.
               </p>
             </div>
           )}
@@ -77,12 +104,10 @@ export default function ShopModal({
         <div className="flex min-w-0 flex-col gap-3 p-5 md:overflow-y-auto md:p-7">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <span className="label">
+              <h2 id="shop-title" className="font-heading text-2xl leading-tight md:text-[28px]">
                 {n} piece{n === 1 ? "" : "s"} spotted
-              </span>
-              <h2 id="shop-title" className="font-heading text-2xl leading-tight text-balance md:text-[28px]">
-                {result.pin.title || "Shop this pin"}
               </h2>
+              {caption && <p className="mt-1 line-clamp-2 text-[13px] text-ink-soft">{caption}</p>}
             </div>
             <button
               ref={closeRef}
@@ -91,19 +116,27 @@ export default function ShopModal({
               aria-label="Close"
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-line text-lg leading-none hover:border-ink"
             >
-              ×
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
             </button>
           </div>
 
-          {outOfSearches && (
+          {outOfSearches ? (
             <p className="rounded-xl bg-amber-bg px-3 py-2 text-xs text-amber">
               This month&apos;s price searches are used up{renews ? ` (back ${renews})` : ""}. Saved results still show, and Google Lens works anytime.
+            </p>
+          ) : (
+            <p className="text-xs leading-relaxed text-ink-soft">
+              <span className="text-ink">Search</span> looks one piece up with Google Lens. Each new search uses 1 of the{" "}
+              {searchesLeft != null ? <span className="text-ink tabular-nums">{searchesLeft}</span> : "limited"} free searches
+              everyone shares this month; repeating a search is free.
             </p>
           )}
 
           <ul className="flex flex-col">
             {result.items.map((item) => (
-              <PieceRow key={item.itemId} item={item} disabled={outOfSearches} onSearch={() => onSearch(item.itemId)} />
+              <PieceRow key={item.itemId} item={item} disabled={outOfSearches} onSearch={() => guardedSearch(item.itemId)} />
             ))}
           </ul>
         </div>
@@ -132,6 +165,7 @@ function PieceRow({ item, disabled, onSearch }: { item: DetectedItem; disabled: 
             type="button"
             onClick={onSearch}
             disabled={busy || (disabled && !searched)}
+            aria-label={`${searching ? "Searching" : checking ? "Checking" : s.status === "error" ? "Try again" : "Search prices"} for ${item.productName}`}
             className={`shrink-0 rounded-full px-4 py-2 font-label text-xs font-medium tracking-wide transition-colors ${
               busy
                 ? "cursor-progress bg-burgundy-soft text-burgundy"
@@ -154,9 +188,9 @@ function PieceRow({ item, disabled, onSearch }: { item: DetectedItem; disabled: 
         <div className="flex flex-col gap-1" aria-live="polite">
           <p className="flex items-center gap-2 text-xs text-ink-soft">
             <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-burgundy/25 border-t-burgundy" aria-hidden="true" />
-            First matches from Google Lens. Checking which ones really match…
+            First matches from Google Lens. Comparing each photo to your pin…
           </p>
-          <div className="flex flex-col gap-1 opacity-70">
+          <div className="flex flex-col gap-1">
             {s.deals.map((deal, i) => (
               <DealRow key={`${deal.url}-${i}`} deal={deal} index={i} sub="checking" />
             ))}
@@ -202,7 +236,7 @@ function PieceRow({ item, disabled, onSearch }: { item: DetectedItem; disabled: 
           )}
           {s.status === "done" && (
             <p className="text-[11px] text-ink-soft">
-              {allCached ? "Saved result, didn't use a search." : `Google Lens · used ${paid || 1} of this month's searches.`}
+              {allCached ? "Saved result, no search used." : `Used ${paid || 1} of this month's shared searches.`}
               {pieceLens && (
                 <>
                   {" "}
@@ -228,7 +262,7 @@ function DealRow({
   deal: RetailerListing;
   index: number;
   lowest?: boolean;
-  /** exact = judged the same product; score = visual match %; text = title match only; checking = not checked yet */
+  /** exact = judged the same product; score = how alike it looks; text = matched by name only; checking = photo check running */
   sub: "exact" | "score" | "text" | "checking";
 }) {
   const price =
@@ -241,7 +275,13 @@ function DealRow({
       : null;
   const pct = Math.round(deal.matchConfidence * 100);
   const detail =
-    sub === "exact" ? "exact match" : sub === "score" ? `${pct}% match` : sub === "text" ? "title match only" : "not checked yet";
+    sub === "exact"
+      ? "same piece"
+      : sub === "score"
+        ? `${pct}% alike`
+        : sub === "text"
+          ? "matched by name, photo not compared"
+          : "comparing photos…";
 
   return (
     <a
@@ -266,7 +306,7 @@ function DealRow({
       </span>
       <span className="text-right font-heading text-xl tabular-nums">
         {price ?? <span className="block font-label text-[11px] leading-tight text-ink-soft">price on site</span>}
-        {lowest && price && <span className="block font-label text-[10px] tracking-wide text-burgundy">lowest</span>}
+        {lowest && price && <span className="block font-label text-[11px] tracking-wide text-burgundy">lowest</span>}
       </span>
     </a>
   );

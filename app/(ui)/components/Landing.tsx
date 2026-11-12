@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { allowance, type AccountUsage } from "../types";
-import { Divider, Flourish } from "./Ornaments";
+import { Flourish } from "./Ornaments";
+import MiniCollage from "./MiniCollage";
 import BotCheck from "./BotCheck";
 import Footer from "./Footer";
 import Wordmark from "./Wordmark";
@@ -27,27 +28,56 @@ export default function Landing({
   const [formError, setFormError] = useState<string | null>(null);
   const a = allowance(account);
 
-  const ready = token !== null && url.trim() !== "" && !busy;
+  // Clickable as soon as the bot check passes; an empty field gets a message instead.
+  const ready = token !== null && !busy;
+  const [exampleQueued, setExampleQueued] = useState(false);
+
+  const start = (v: string, tok: string | null = token) => {
+    if (tok === null) return;
+    setFormError(null);
+    onSubmit(v, tok);
+    // Turnstile tokens are single-use: ask for a fresh one for the next try.
+    if (tok) setResetSignal((n) => n + 1);
+  };
+
+  /** Fill in the example board and start it (once the bot check has passed). */
+  const tryExample = () => {
+    setUrl(EXAMPLE_BOARD);
+    setFormError(null);
+    if (busy) return;
+    if (token === null) setExampleQueued(true);
+    else start(EXAMPLE_BOARD);
+  };
+
+  /** Bot check result; starts a queued example as soon as it passes. */
+  const onToken = (tok: string | null) => {
+    setToken(tok);
+    if (tok !== null && exampleQueued && !busy) {
+      setExampleQueued(false);
+      start(EXAMPLE_BOARD, tok);
+    }
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const v = url.trim();
+    if (!v) {
+      setFormError("Paste a board link first.");
+      return;
+    }
     if (!BOARD_LINK.test(v)) {
       setFormError("That doesn't look like a board link. It should look like pinterest.com/name/board-name.");
       return;
     }
-    if (token === null) return;
-    setFormError(null);
-    onSubmit(v, token);
-    // Turnstile tokens are single-use: ask for a fresh one for the next try.
-    if (token) setResetSignal((n) => n + 1);
+    start(v);
   };
 
   const shownError = formError ?? error;
 
   return (
     <div className="relative z-10 flex h-full min-h-svh flex-col px-[max(16px,env(safe-area-inset-left))] xl:px-28">
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center gap-7 py-8 text-center">
+      <MiniCollage onTry={tryExample} />
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center gap-10 pt-[clamp(48px,10svh,120px)] pb-10 text-center">
         <div className="-mb-2 flex flex-col items-center">
           <div className="flex items-center gap-6">
             <span className="hidden md:block">
@@ -86,7 +116,7 @@ export default function Landing({
                 setUrl(e.target.value);
                 setFormError(null);
               }}
-              className="min-w-0 flex-1 bg-transparent py-2.5 font-label text-[14px] outline-none placeholder:text-ink-soft/60"
+              className="min-w-0 flex-1 bg-transparent py-2.5 font-label text-[14px] outline-none placeholder:text-ink-soft"
             />
             <button
               type="submit"
@@ -98,17 +128,7 @@ export default function Landing({
           </label>
 
           <div className="flex flex-wrap items-start justify-between gap-3 text-left">
-            <BotCheck onToken={setToken} resetSignal={resetSignal} />
-            <button
-              type="button"
-              onClick={() => {
-                setUrl(EXAMPLE_BOARD);
-                setFormError(null);
-              }}
-              className="text-xs text-ink-soft underline underline-offset-4 hover:text-ink"
-            >
-              Try an example board
-            </button>
+            <BotCheck onToken={onToken} resetSignal={resetSignal} />
           </div>
           {shownError && (
             <p role="alert" className="text-left text-[13px] text-amber">
@@ -125,28 +145,42 @@ export default function Landing({
             About 15 pins a minute, so pins appear one by one.
           </Step>
           <Step title="Find prices" n={3}>
+            Looks each piece up with Google Lens, from a free allowance everyone shares
             {a.out ? (
-              <mark className="rounded bg-amber-bg px-1 text-amber">
-                Out of searches this month{a.renews ? `, back ${a.renews}` : ""}.
-              </mark>
+              <>
+                .{" "}
+                <mark className="rounded bg-amber-bg px-1 text-amber">
+                  It&apos;s used up{a.renews ? ` until ${a.renews}` : ""}
+                </mark>
+                ; steps 1 and 2 still work.
+              </>
             ) : a.known ? (
               <>
-                <span className="text-ink">
-                  {a.left}
-                  {a.total ? ` of ${a.total}` : ""} searches left
-                </span>{" "}
-                this month{a.renews ? `, renews ${a.renews}` : ""}.
+                {" "}
+                ({a.left} left this month). If it runs out, steps 1 and 2 still work.
               </>
             ) : (
-              <>Uses a shared monthly search allowance.</>
+              <>. If it runs out, steps 1 and 2 still work.</>
             )}
           </Step>
         </section>
-        <p className="w-full max-w-3xl text-left text-xs text-ink-soft">
-          If searches run out, steps 1 and 2 still work, and every pin opens in Google Lens.
-        </p>
-        <Divider />
       </main>
+      <p className="relative z-10 pb-4 text-center text-xs text-ink-soft">
+        {exampleQueued ? (
+          "Starting the example once the check passes…"
+        ) : (
+          <>
+            Pins from the example board, <span className="font-display text-[15px] text-ink">N.Y.C. Style</span>.{" "}
+            <button
+              type="button"
+              onClick={tryExample}
+              className="text-burgundy underline underline-offset-4 hover:text-burgundy-deep"
+            >
+              Try it
+            </button>
+          </>
+        )}
+      </p>
       <Footer />
     </div>
   );

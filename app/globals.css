@@ -29,6 +29,7 @@
   --line: #e2d8c7;
   --burgundy: #7a1f2b;
   --burgundy-deep: #5c1520;
+  --burgundy-bright: #9b1b30; /* cursor dot: reads at small sizes */
   --burgundy-soft: #f1dfe0;
   --nude: #e7cfbf;
   --nude-soft: #f3e5da;
@@ -46,6 +47,7 @@
   --color-line: var(--line);
   --color-burgundy: var(--burgundy);
   --color-burgundy-deep: var(--burgundy-deep);
+  --color-burgundy-bright: var(--burgundy-bright);
   --color-burgundy-soft: var(--burgundy-soft);
   --color-nude: var(--nude);
   --color-nude-soft: var(--nude-soft);
@@ -72,9 +74,13 @@ body {
   background: var(--nude);
 }
 
-:focus-visible {
-  outline: 2px solid var(--burgundy);
-  outline-offset: 3px;
+/* Layered so a component's own `outline-none` (e.g. the board URL field,
+   whose rounded frame shows focus instead) can override it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--burgundy);
+    outline-offset: 3px;
+  }
 }
 
 /* Small uppercase labels */
@@ -135,4 +141,30 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Landing preview pins: edges feathered into the page at rest, crisp on hover.
+   --feather is registered so the change animates. */
+@property --feather {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.pin-soft {
+  --feather: 14px;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
+    linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
+  mask-image:
+    linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
+    linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  transition:
+    --feather 0.5s ease,
+    filter 0.5s ease,
+    opacity 0.5s ease;
+}
+.group:hover .pin-soft {
+  --feather: 0px;
 }

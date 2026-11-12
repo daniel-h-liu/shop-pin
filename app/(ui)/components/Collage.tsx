@@ -167,6 +167,7 @@ function PinTile({
   onShop: () => void;
 }) {
   const lastPointer = useRef("mouse");
+  const lastPointerDownAt = useRef(0);
   const items = result.items.length;
   const shoppable = result.status === "done" && items > 0;
   const tag =
@@ -186,6 +187,7 @@ function PinTile({
       onPointerLeave={(e) => e.pointerType === "mouse" && onHot(false)}
       onPointerDown={(e) => {
         lastPointer.current = e.pointerType;
+        lastPointerDownAt.current = Date.now();
       }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return; // the Shop button handles itself
@@ -195,14 +197,24 @@ function PinTile({
         else if (shoppable) onShop();
         else if (lastPointer.current !== "mouse") onHot(false);
       }}
-      onFocus={() => onHot(true)}
+      onFocus={() => {
+        // Keyboard focus bulges the pin. A tap also focuses it (just before its
+        // click), which would make the first tap open the modal; skip that.
+        if (Date.now() - lastPointerDownAt.current > 400) onHot(true);
+      }}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onHot(false);
       }}
     >
       <div
-        tabIndex={0}
-        aria-label={result.pin.title ?? "Pin"}
+        // One tab stop per pin, and only for pins that open something.
+        tabIndex={shoppable ? 0 : -1}
+        role={shoppable ? "button" : undefined}
+        aria-label={
+          shoppable
+            ? `${result.pin.title ? `${result.pin.title}, ` : ""}${items} piece${items === 1 ? "" : "s"} to shop`
+            : `${result.pin.title ? `${result.pin.title}: ` : ""}${tag ?? ""}`
+        }
         onKeyDown={(e) => {
           if (shoppable && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
@@ -231,6 +243,8 @@ function PinTile({
           <>
             <button
               type="button"
+              tabIndex={-1} // the tile itself is the keyboard target
+              aria-hidden="true"
               onClick={onShop}
               className={`absolute top-2.5 right-2.5 rounded-full bg-burgundy px-4 py-2 font-label text-xs font-medium tracking-wider text-paper transition-[opacity,transform,background-color] duration-300 ease-bob hover:bg-burgundy-deep focus-visible:translate-y-0 focus-visible:opacity-100 ${
                 hot ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
@@ -252,7 +266,7 @@ function PinTile({
         )}
 
         {tag && (
-          <span className="absolute bottom-2.5 left-2.5 rounded-full bg-paper/85 px-2.5 py-0.5 font-label text-[10px] tracking-[0.12em] text-ink-soft uppercase">
+          <span className="absolute bottom-2.5 left-2.5 rounded-full bg-paper/90 px-2.5 py-0.5 font-label text-[11px] tracking-[0.1em] text-ink-soft uppercase">
             {tag}
           </span>
         )}

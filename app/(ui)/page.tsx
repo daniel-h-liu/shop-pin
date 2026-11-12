@@ -197,7 +197,8 @@ export default function Home() {
   return (
     <>
       <GoldFrame />
-      <div className="relative z-10 flex min-h-svh flex-col overflow-x-clip">
+      {/* inert while the Shop modal is open: keyboard and screen readers stay inside it */}
+      <div className="relative z-10 flex min-h-svh flex-col overflow-x-clip" inert={!!openResult}>
         <header className="sticky top-[env(safe-area-inset-top)] z-20 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-cream/90 px-[max(16px,env(safe-area-inset-left))] py-3 backdrop-blur-md xl:px-28">
           <button type="button" onClick={goHome} aria-label="Start over with another board" className="text-[26px] leading-none">
             <Wordmark />
@@ -288,6 +289,7 @@ export default function Home() {
           result={openResult}
           outOfSearches={a.out}
           renews={a.renews}
+          searchesLeft={a.known && !a.out && a.left != null ? a.left : null}
           onSearch={(itemId) => searchItem(openResult.pin.pinId, itemId)}
           onClose={closeModal}
         />
