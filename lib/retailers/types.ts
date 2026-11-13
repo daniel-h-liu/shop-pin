@@ -8,6 +8,8 @@ export type SearchContext = {
   imageUrl?: string;
   /** Public URL of just this item cropped from the pin; image adapters prefer it. */
   cropUrl?: string;
+  /** Where the item sits in the pin photo (0-1000), for adapters that crop it themselves. */
+  box?: [number, number, number, number];
 };
 
 export interface RetailerAdapter {

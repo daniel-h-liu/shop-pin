@@ -31,6 +31,17 @@ export function lensUrl(imageUrl: string): string {
 /** Sites that repost photos rather than sell things: never "the original". */
 const NOT_SELLERS =
   /(^|\.)(pinterest|instagram|facebook|tiktok|twitter|x|youtube|reddit|tumblr|threads|weheartit|lemon8-app|pinimg)\.[a-z.]+$/i;
+/**
+ * Resale marketplaces: everything sold there is secondhand. (eBay sells new
+ * and used, so it's left out; its own adapter reports each item's condition.)
+ */
+const RESALE =
+  /(^|\.)(poshmark|depop|mercari|vinted|thredup|therealreal|grailed|vestiairecollective|fashionphile|rebag|tradesy|curtsyapp|kidizen|swap)\.[a-z.]+$/i;
+
+export function isResaleHost(host: string): boolean {
+  return RESALE.test(host);
+}
+
 /** Unpriced matches this high in Lens's ranking may be the exact product's page. */
 const ORIGINAL_MAX_POSITION = 12;
 const MAX_UNPRICED = 4;
@@ -113,6 +124,7 @@ export const googleLensAdapter: RetailerAdapter = {
           url: m.link!,
           imageUrl: m.thumbnail ?? m.image,
           matchConfidence: Math.round((0.5 * rank + 0.5 * scoreMatch(product, m.title!)) * 100) / 100,
+          condition: isResaleHost(hostOf(m.link!)) ? "Secondhand" : undefined,
         });
         if (!price || price <= 0) {
           // Possibly the exact product on a page without a price.

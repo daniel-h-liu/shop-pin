@@ -70,3 +70,22 @@ export async function cropImage(input: Buffer, box: Box): Promise<Buffer> {
     .jpeg({ quality: 88 })
     .toBuffer();
 }
+
+/**
+ * The item cut out of a pin photo (or the whole photo when there's no box),
+ * as base64 JPEG, for APIs that take image bytes rather than a URL (eBay).
+ */
+export async function itemImageBase64(imageUrl: string, box: DetectedItem["box"], timeoutMs = 8000): Promise<string> {
+  if (!/^https:\/\//i.test(imageUrl)) throw new Error("Not a public image URL");
+  const res = await fetch(imageUrl, { signal: AbortSignal.timeout(timeoutMs) });
+  if (!res.ok) throw new Error(`Image fetch failed (HTTP ${res.status})`);
+  const input = Buffer.from(await res.arrayBuffer());
+  if (box) return (await cropImage(input, box)).toString("base64");
+  const sharp = (await import("sharp")).default;
+  const out = await sharp(input)
+    .rotate()
+    .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 88 })
+    .toBuffer();
+  return out.toString("base64");
+}

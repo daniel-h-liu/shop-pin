@@ -203,6 +203,27 @@ describe("googleLensAdapter", () => {
     expect(out.map((l) => l.retailer)).toEqual(["Nike"]);
   });
 
+  it("tags listings from resale marketplaces as secondhand", async () => {
+    vi.stubEnv("SERPAPI_KEY", "k");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            visual_matches: [
+              { position: 1, title: "Nike Air Max 90 White", link: "https://poshmark.com/listing/1", source: "Poshmark", price: { extracted_value: 40, currency: "$" } },
+              { position: 2, title: "Nike Air Max 90 White", link: "https://www.depop.com/products/2", source: "Depop", price: { extracted_value: 35, currency: "$" } },
+              { position: 3, title: "Nike Air Max 90 White", link: "https://www.nike.com/t/3", source: "Nike", price: { extracted_value: 130, currency: "$" } },
+              { position: 4, title: "Nike Air Max 90 White", link: "https://www.ebay.com/itm/4", source: "eBay", price: { extracted_value: 60, currency: "$" } },
+            ],
+          }),
+        ),
+      ),
+    );
+    const out = await googleLensAdapter.search(product, { imageUrl: "https://i.pinimg.com/736x/x.jpg" });
+    expect(out.map((l) => l.condition)).toEqual(["Secondhand", "Secondhand", undefined, undefined]);
+  });
+
   it("refuses non-public images (uploads) with a readable reason", async () => {
     vi.stubEnv("SERPAPI_KEY", "k");
     await expect(googleLensAdapter.search(product, { imageUrl: "data:image/png;base64,AAAA" })).rejects.toMatchObject({

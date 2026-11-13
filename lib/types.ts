@@ -40,6 +40,7 @@ export type RetailerListing = {
   matchConfidence: number; // 0-1
   matchReason?: string; // from the visual check
   exact?: boolean; // the visual check judged it to be the very same product
+  condition?: string; // "Secondhand" (resale sites via Lens) or eBay's own, e.g. "Pre-owned"
 };
 
 /** How each retailer responded to one item search. */

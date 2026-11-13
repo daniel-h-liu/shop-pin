@@ -141,3 +141,72 @@ describe("ebayAdapter", () => {
     await expect(ebayAdapter.search(product)).rejects.toMatchObject({ kind: "auth" });
   });
 });
+
+describe("ebayAdapter image search", () => {
+  const PIN = "https://i.pinimg.com/736x/x.jpg";
+  const item = (n: number, extra: Record<string, unknown> = {}) => ({
+    title: `Nike Air Max 90 White ${n}`,
+    itemWebUrl: `https://ebay.example/item/${n}`,
+    price: { value: String(50 + n), currency: "USD" },
+    image: { imageUrl: `https://ebay.example/img/${n}.jpg` },
+    ...extra,
+  });
+
+  async function setup(onApi: (url: string, init?: RequestInit) => Response) {
+    vi.stubEnv("EBAY_APP_ID", "app-id");
+    vi.stubEnv("EBAY_CERT_ID", "cert-id");
+    const sharp = (await import("sharp")).default;
+    const jpeg = await sharp({ create: { width: 200, height: 300, channels: 3, background: "#7a1f2b" } }).jpeg().toBuffer();
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.includes("oauth2/token")) return new Response(JSON.stringify({ access_token: "t", expires_in: 7200 }));
+        if (url === PIN) return new Response(new Uint8Array(jpeg), { headers: { "content-type": "image/jpeg" } });
+        calls.push({ url, init });
+        return onApi(url, init);
+      }),
+    );
+    const mod = await freshEbayAdapter();
+    return { ...mod, calls };
+  }
+
+  it("searches by a crop of the piece, Buy It Now only, and keeps the condition of used items", async () => {
+    const { ebayAdapter, calls } = await setup((url) =>
+      url.includes("search_by_image")
+        ? new Response(JSON.stringify({ itemSummaries: [1, 2, 3, 4, 5].map((n) => item(n, n === 1 ? { condition: "Pre-owned" } : { condition: "New" })) }))
+        : new Response("unexpected", { status: 500 }),
+    );
+    const out = await ebayAdapter.search(product, { imageUrl: PIN, box: [100, 100, 600, 600] });
+    expect(calls).toHaveLength(1); // enough image matches: no text search
+    expect(calls[0].url).toContain("search_by_image");
+    expect(decodeURIComponent(calls[0].url)).toContain("buyingOptions:{FIXED_PRICE}");
+    expect(JSON.parse(String(calls[0].init?.body)).image).toMatch(/^\/9j\//); // base64 JPEG
+    expect(out).toHaveLength(5);
+    expect(out[0].condition).toBe("Pre-owned");
+    expect(out[1].condition).toBeUndefined(); // "New" isn't worth a label
+    expect(out[0].matchConfidence).toBeGreaterThan(out[4].matchConfidence); // visual order counts
+  });
+
+  it("tops up thin image results with a text search", async () => {
+    const { ebayAdapter, calls } = await setup((url) =>
+      url.includes("search_by_image")
+        ? new Response(JSON.stringify({ itemSummaries: [item(1)] }))
+        : new Response(JSON.stringify({ itemSummaries: [item(1), item(7)] })),
+    );
+    const out = await ebayAdapter.search(product, { imageUrl: PIN });
+    expect(calls.map((c) => (c.url.includes("search_by_image") ? "image" : "text"))).toEqual(["image", "text"]);
+    expect(out.map((l) => l.url)).toEqual(["https://ebay.example/item/1", "https://ebay.example/item/7"]);
+  });
+
+  it("falls back to text search when eBay refuses image search, and stops asking", async () => {
+    const { ebayAdapter, calls } = await setup((url) =>
+      url.includes("search_by_image")
+        ? new Response("Insufficient permissions", { status: 403 })
+        : new Response(JSON.stringify({ itemSummaries: [item(2)] })),
+    );
+    expect(await ebayAdapter.search(product, { imageUrl: PIN })).toHaveLength(1);
+    expect(await ebayAdapter.search(product, { imageUrl: PIN })).toHaveLength(1);
+    expect(calls.filter((c) => c.url.includes("search_by_image"))).toHaveLength(1);
+  });
+});

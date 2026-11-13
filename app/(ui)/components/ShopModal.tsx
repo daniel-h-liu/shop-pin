@@ -301,6 +301,11 @@ function DealRow({
       <span className="min-w-0">
         <span className="line-clamp-2 text-[13px] leading-snug break-words">{deal.title}</span>
         <span className="text-[11px] text-ink-soft">
+          {deal.condition && (
+            <span className="mr-1.5 inline-block rounded-full bg-nude-soft px-2 py-px align-[1px] font-label text-[11px] text-ink">
+              {deal.condition.toLowerCase()}
+            </span>
+          )}
           {deal.retailer} · <span className={sub === "exact" ? "text-burgundy" : ""}>{detail}</span>
         </span>
       </span>

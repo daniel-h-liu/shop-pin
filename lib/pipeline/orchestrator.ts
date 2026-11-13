@@ -199,7 +199,7 @@ export async function searchItem(
   //    listings. Record how each one did.
   const sources: AdapterOutcome[] = [];
   const listings: RetailerListing[] = [];
-  const ctx = { imageUrl: pin.pin.imageUrl, cropUrl: item.cropUrl };
+  const ctx = { imageUrl: pin.pin.imageUrl, cropUrl: item.cropUrl, box: item.box };
   const cacheKey = (a: RetailerAdapter) =>
     `${a.name}::${a.usesImage ? `${ctx.cropUrl ?? ctx.imageUrl}::` : ""}${item.searchQuery}`;
 
